@@ -107,3 +107,45 @@ score_mat /= score_mat.std(axis=0, keepdims=True)
 score = []
 for n, tid in enumerate(test_list[:,0]):
     score.append(score_mat[enroll_label.index(tid),n])
+
+# softmax classifier
+batchs = 64
+
+def name_to_one_hot(name):
+    ix = tf.where(enroll_ids==name)[0][0]
+    return tf.one_hot(ix, len(enroll_ids))
+
+train_data = tf.data.Dataset.from_tensor_slices(enrollment_E)
+train_labl = tf.data.Dataset.from_tensor_slices(enrollment_list[:,0]).map(name_to_one_hot)
+
+test_data = tf.data.Dataset.from_tensor_slices(test_E[test_list[:,2]=='client'])
+test_labl = tf.data.Dataset.from_tensor_slices(test_list[test_list[:,2]=='client',0]).map(name_to_one_hot)
+
+trn_dataset = tf.data.Dataset.zip((train_data,train_labl)).shuffle(len(enrollment_E)).batch(batchs)
+tst_dataset = tf.data.Dataset.zip((test_data,test_labl)).batch(batchs)
+
+filter_size = 512
+inputs = 512
+classes = len(enroll_ids)
+
+inputs = layers.Input(shape=(512), name="input")
+outputs = layers.Dense(units=classes, activation='softmax', name='output')(x)
+
+model = tf.keras.Model(inputs, outputs, name="mynet")
+model.summary()
+
+model.compile(
+    optimizer=tf.keras.optimizers.Adam(0.01),
+    loss='categorical_crossentropy',
+    metrics=['accuracy'])
+
+log = model.fit(trn_dataset, epochs=100, verbose=1, validation_data=tst_dataset,class_weight=cw_dict)
+
+# test softmax classifier
+complete_test = tf.data.Dataset.from_tensor_slices(test_E).batch(batchs)
+
+score_mat = model_softmax.predict(complete_test, verbose=1)
+
+score = []
+for n, tid in enumerate(test_list[:,0]):
+    score.append(score_mat[n, enroll_label.index(tid)])
