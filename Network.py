@@ -3,6 +3,7 @@ import tensorflow_addons as tfa
 
 layers = tf.keras.layers
 
+# measuring triplet accuracy during training
 def triplet_accuracy(y_true, y_pred):
     batch_size =tf.cast(tf.size(y_true), dtype=tf.dtypes.float32)
     # Build pairwise squared distance matrix
@@ -23,6 +24,7 @@ def triplet_accuracy(y_true, y_pred):
     
     return (true_trues+true_falses)/(batch_size*batch_size)
 
+# model definition
 def create_custom_model(data_dim=(None, 204), filter_size=512, output_size=512):
     inputs = layers.Input(shape=(data_dim), name="input")
 
@@ -64,15 +66,44 @@ def create_custom_model(data_dim=(None, 204), filter_size=512, output_size=512):
     model.summary()
     return model
 
+# training parameters
 batchsize = 256
 featdim = 512
 data_dim=(None,3*lnc)
 output_size = featdim
 
+# model definition
 model = create_custom_model(data_dim=data_dim, filter_size=featdim, output_size = output_size)
 
 model.compile(
     optimizer=tf.keras.optimizers.Adam(.0001),
     loss=tfa.losses.TripletSemiHardLoss(), metrics=triplet_accuracy)
     
+# training
 log = model.fit(trainset, initial_epoch = 0, epochs=100, verbose=1, validation_data=validset)
+
+# embedding extraction
+enrollment_E = model.predict(enrollment_dataset, verbose=1)
+test_E = model.predict(test_dataset, verbose=1)
+
+# enrollment
+workers = 12
+
+enroll_ids = np.unique(enrollment_list[:,0])
+
+enroll_label = []
+enrollment = []
+for eid in enroll_ids:
+    ixs = np.where(eid==enrollment_list[:,0])[0]
+    enrollment.append(np.mean(enrollment_E[ixs],axis=0))
+    enroll_label.append(eid)
+    
+# test
+score_mat = sklearn.metrics.pairwise_distances(enrollment, test_E, n_jobs=workers)
+
+score_mat -= score_mat.mean(axis=0, keepdims=True)
+score_mat /= score_mat.std(axis=0, keepdims=True)
+
+score = []
+for n, tid in enumerate(test_list[:,0]):
+    score.append(score_mat[enroll_label.index(tid),n])
