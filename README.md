@@ -1,5 +1,4 @@
-# 1000LP
-Action-Independent Behavioral Face Recognition
+# Action-Independent Behavioral Face Recognition
 
 This repository contains snippets of the code used in the following publication:
 A. Khodabakhsh, H. loiselle, “Action-Independent Generalized Behavioral Identity Descriptors for Look-alike Recognition in Videos”, BIOSIG, 2020.
