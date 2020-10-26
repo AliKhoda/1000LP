@@ -34,6 +34,7 @@ rln = 33 # Tip of nose feature location
 # Average landmark locations after normalization and rotation
 avgpos = np.load('avgpos.npy')
 
+# Set nose tip landmark location to center of the coordinate system
 avgpos[rln] = 0
 avgpos[rln+lnc] = 0
 avgpos[rln+2*lnc] = 0
@@ -66,24 +67,29 @@ def refine_3d_corr(feat):
     refined = np.zeros((feat.shape[0], 3*lnc), dtype='float32')
     for frame in range(feat.shape[0]):
     
+        # Translate based on the location of the tip of the nose
         x = feat[frame,:lnc]-feat[frame,rln]
         y = feat[frame,lnc:2*lnc]-feat[frame,lnc+rln]
         z = feat[frame,2*lnc:3*lnc]-feat[frame,2*lnc+rln]
 
+        # Get head pose and calculate rotation matrix
         Rx = feat[frame,3*lnc]
         Ry = feat[frame,3*lnc+1]
         Rz = feat[frame,3*lnc+2]
 
         R = eulerAnglesToRotationMatrix([-Rx, -Ry, -Rz])
 
+        # Rotate
         rotated = np.dot(R,[x, y, z])
 
+        # Replace nose tip coordinates with head pose
         rotated[0,rln] = Rx*180/np.pi
         rotated[1,rln] = Ry*180/np.pi
         rotated[2,rln] = Rz*180/np.pi
         
         refined[frame,:] = rotated.flatten()
             
+    # Normalize
     refined[:,rln] -= np.mean(refined[:,rln])
     refined[:,rln+lnc] -= np.mean(refined[:,rln+lnc])
     refined[:,rln+2*lnc] -= np.mean(refined[:,rln+2*lnc])
@@ -97,7 +103,10 @@ def readnpz(filename):
     npz = np.load(filename)
     selected = np.array(npz[select].tolist(), dtype='float32')
     
+    # Normalize by pose and translate
     refined = refine_3d_corr(selected)
+
+    # Normalize by training average
     refined -= avgpos
     refined /= stdpos
     return refined
