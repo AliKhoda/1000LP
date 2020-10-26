@@ -13,8 +13,10 @@ def triplet_accuracy(y_true, y_pred):
     # Invert so we can select negatives only.
     adjacency_not = 1-adjacency
     
+    # Convert to decision with thresholding at 0.5
     predicted = tf.cast(tf.math.less_equal(pdist_matrix, 0.5), dtype=tf.dtypes.float32)
     
+    # Calculate true positives and true negatives
     true_trues = tf.reduce_sum(tf.cast(
         tf.math.multiply(predicted, adjacency)
         , dtype=tf.dtypes.float32))
@@ -22,6 +24,7 @@ def triplet_accuracy(y_true, y_pred):
         tf.math.multiply(1-predicted, adjacency_not)
         , dtype=tf.dtypes.float32))
     
+    # Calculate percentage
     return (true_trues+true_falses)/(batch_size*batch_size)
 
 # model definition
@@ -99,8 +102,10 @@ for eid in enroll_ids:
     enroll_label.append(eid)
     
 # test
+# Get pairwise distance matrice
 score_mat = sklearn.metrics.pairwise_distances(enrollment, test_E, n_jobs=workers)
 
+# Score normalization
 score_mat -= score_mat.mean(axis=0, keepdims=True)
 score_mat /= score_mat.std(axis=0, keepdims=True)
 
@@ -111,23 +116,27 @@ for n, tid in enumerate(test_list[:,0]):
 # softmax classifier
 batchs = 64
 
+# name to one-hot representation
 def name_to_one_hot(name):
     ix = tf.where(enroll_ids==name)[0][0]
     return tf.one_hot(ix, len(enroll_ids))
 
+# Training dataset
 train_data = tf.data.Dataset.from_tensor_slices(enrollment_E)
 train_labl = tf.data.Dataset.from_tensor_slices(enrollment_list[:,0]).map(name_to_one_hot)
+trn_dataset = tf.data.Dataset.zip((train_data,train_labl)).shuffle(len(enrollment_E)).batch(batchs)
 
+# Test dataset
 test_data = tf.data.Dataset.from_tensor_slices(test_E[test_list[:,2]=='client'])
 test_labl = tf.data.Dataset.from_tensor_slices(test_list[test_list[:,2]=='client',0]).map(name_to_one_hot)
-
-trn_dataset = tf.data.Dataset.zip((train_data,train_labl)).shuffle(len(enrollment_E)).batch(batchs)
 tst_dataset = tf.data.Dataset.zip((test_data,test_labl)).batch(batchs)
 
+# Softmax classifier parameters
 filter_size = 512
 inputs = 512
 classes = len(enroll_ids)
 
+# Model definition
 inputs = layers.Input(shape=(512), name="input")
 outputs = layers.Dense(units=classes, activation='softmax', name='output')(x)
 
@@ -139,13 +148,16 @@ model.compile(
     loss='categorical_crossentropy',
     metrics=['accuracy'])
 
+# Train model
 log = model.fit(trn_dataset, epochs=100, verbose=1, validation_data=tst_dataset,class_weight=cw_dict)
 
-# test softmax classifier
+# Test softmax classifier
 complete_test = tf.data.Dataset.from_tensor_slices(test_E).batch(batchs)
 
+# Model prediction scores
 score_mat = model_softmax.predict(complete_test, verbose=1)
 
+# Convert to test-list utterances
 score = []
 for n, tid in enumerate(test_list[:,0]):
     score.append(score_mat[n, enroll_label.index(tid)])
