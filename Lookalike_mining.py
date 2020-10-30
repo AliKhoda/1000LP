@@ -117,7 +117,7 @@ def get_feature(model,aligned):
     embedding = sklearn.preprocessing.normalize(embedding).flatten()
     return embedding
   
-# Get feat for image file
+# Get embedding for an image file
 def get_feat_img(img):
     global detector
     global model
@@ -136,7 +136,7 @@ def calc_dist_sim(feat1, feat2):
     sim = np.dot(feat1, feat2.T)
     return (dist, sim)
   
-# Dump feat to text file
+# Dump embedding to text file
 def dump_feat(args):
     img = args[0]
     featfile = args[1]
@@ -151,11 +151,11 @@ def dump_feat(args):
     except:
         pass
       
-# Load feature file
+# Load embedding file
 def load_feat(featfile):
     return np.loadtxt(featfile, dtype=float)
 
-# Dump feature for all '.jpg' files in a directory
+# Dump embeddings for all '.jpg' files in a directory
 def dump_feat_dir(imgdir, featdir):
     
     global detector
@@ -268,11 +268,12 @@ outfile = os.path.join(base, 'lookalikes.csv')
 # Sort scores
 sortedvals = np.sort(mat, axis=None)
 
+# initialize output dataframe
 df = pd.DataFrame(columns=['TargetID', 'TargetName', 
                            'LookalikeID', 'LookalikeName'])
 
 # How many pairs to find
-tofind = 10*len(mat)
+tofind = 2000
 
 found = 0
 pointer = 0
